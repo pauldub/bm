@@ -1,0 +1,45 @@
+#!/usr/bin/sbcl --script
+
+(let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp"
+                                       (user-homedir-pathname))))
+  (when (probe-file quicklisp-init)
+    (load quicklisp-init)))
+
+(ql:quickload :unix-options)
+(use-package 'unix-options)
+
+(ql:quickload :bm)
+
+(defun print-help ()
+  (format t "USAGE: ~%")
+  (format t "List bookmarks:~tbm-cli -l~%")
+  (format t "Search bookmarks:~tbm-cli -s -q title:\"ruby\"~%"))
+
+(defun all-bookmarks ()
+  (concatenate 'list
+               (pocket:bookmarks bm-config:*pocket-user*)
+               (delicious:bookmarks)))
+
+(defun print-bookmark (b)
+  (format t "title: ~a~%" (bm:bookmark-title b)))
+
+(defun list-bookmarks ()
+  (mapcar #'print-bookmark (all-bookmarks)))
+
+(defun search-bookmarks (query)
+  (print query)
+  (bm:index-bookmarks)
+  (bm:bm-search query 'bm:basic-log))
+
+(defun start-server (port)
+  (format t "Starting JSON-RPC api on port ~a.~%" port)
+  (bm-api:start port))
+
+(with-cli-options () (help list search start &parameters query port)
+                  (cond (help (print-help))
+                        (list (list-bookmarks))
+                        (start (start-server (or port 8884)))
+                        ((and search query) (search-bookmarks query))
+                        (t (print-help))))
+
+(quit)
